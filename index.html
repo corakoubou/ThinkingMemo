@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>思考メモ帳（コイン/ボール演出・直進寄り）</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #1f2933; color: #f9fafb;
+      display: flex; justify-content: center; align-items: flex-start;
+      min-height: 100vh;
+    }
+    .container {
+      margin: 40px 16px;
+      background: #111827;
+      border-radius: 16px;
+      padding: 20px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+      position: relative;
+      overflow: visible;
+    }
+    h1 { margin: 0 0 16px; font-size: 1.6rem; text-align: center; }
+
+    .controls{
+      display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;
+      justify-content:center; align-items:center;
+    }
+    button{
+      border:none; border-radius:999px; padding:8px 18px;
+      font-size:0.95rem; cursor:pointer; font-weight:600;
+      transition: transform .1s ease, box-shadow .1s ease, opacity .2s ease;
+    }
+    button:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; transform:none; }
+    #startBtn{ background:#10b981; color:#022c22; }
+    #stopBtn{ background:#f97316; color:#7c2d12; }
+    #resetBtn{ background:#6b7280; color:#e5e7eb; }
+    button:not(:disabled):hover{ transform: translateY(-1px); box-shadow:0 4px 10px rgba(0,0,0,.35); }
+
+    .select-pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border:1px solid #374151;
+      border-radius:999px; background:#0b1220; user-select:none;
+      font-size:.9rem; color:#e5e7eb;
+    }
+    .select-pill select{
+      background:transparent; border:none; outline:none;
+      color:#e5e7eb; font-size:.9rem; cursor:pointer;
+    }
+    .select-pill option{ color:#111827; }
+
+    .info{
+      display:flex; flex-wrap:wrap; gap:16px; margin-bottom:12px;
+      justify-content:center; font-size:.95rem;
+    }
+    .info-item{
+      background:#111827; border-radius:10px; padding:6px 10px;
+      border:1px solid #374151; min-width:160px; text-align:center;
+      position:relative; z-index:2;
+    }
+    .label{ font-size:.8rem; color:#9ca3af; margin-bottom:2px; }
+    .value{ font-size:1.1rem; font-variant-numeric: tabular-nums; }
+
+    #memo{
+      width:100%; height:280px; background:#020617; color:#f9fafb;
+      border-radius:12px; border:1px solid #374151;
+      padding:10px 12px; resize:vertical;
+      font-size:.95rem; line-height:1.4;
+      position:relative; z-index:1;
+    }
+    #memo:focus{
+      outline:none; border-color:#10b981;
+      box-shadow:0 0 0 1px rgba(16,185,129,.6);
+    }
+    .note{ margin-top:6px; font-size:.8rem; color:#9ca3af; text-align:right; }
+
+    #fxLayer{
+      position:absolute; inset:0; pointer-events:none; overflow:visible; z-index:3;
+    }
+    .coin{
+      position:absolute; width:16px; height:16px; border-radius:50%;
+      background: radial-gradient(circle at 35% 35%, #fff7cc 0%, #fbbf24 35%, #b45309 100%);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+      transform: translate(-50%, -50%);
+      opacity:0; will-change: transform, opacity;
+    }
+
+    #ballCanvas{
+      position:absolute; inset:0; pointer-events:none;
+      z-index:2; display:none;
+    }
+
+    @media (max-width: 600px){
+      .container{ margin:16px; padding:16px; }
+      #memo{ height:220px; }
+    }
+    @media (prefers-reduced-motion: reduce){
+      .coin{ display:none; }
+      #ballCanvas{ display:none !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="container" id="container">
+  <h1>思考メモ帳（直進寄りボール）</h1>
+
+  <div class="controls">
+    <button id="startBtn">思考開始</button>
+    <button id="stopBtn" disabled>思考停止</button>
+    <button id="resetBtn">リセット</button>
+
+    <label class="select-pill" title="演出タイプっす">
+      演出
+      <select id="fxMode">
+        <option value="off">OFF</option>
+        <option value="coin" selected>コイン</option>
+        <option value="ball">ボール(物理)</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="info">
+    <div class="info-item">
+      <div class="label">思考時間</div>
+      <div class="value" id="timeDisplay">00:00:00</div>
+    </div>
+    <div class="info-item">
+      <div class="label">評価ポイント</div>
+      <div class="value" id="scoreDisplay">0.0</div>
+    </div>
+  </div>
+
+  <textarea id="memo" placeholder="ここに思考内容やメモを書いてくださいっす、ご主人。&#10;・打鍵1回ごとに +1.5点（長押しリピート除外）っす&#10;・ボールは直進寄り、ランダムは跳ね返りだけっす"></textarea>
+
+  <div class="note">
+    ルール：0.1秒ごとに -0.1点（＝1秒で -1点） / 打鍵1回ごとに +1.5点（長押しリピート除外）っす
+  </div>
+
+  <canvas id="ballCanvas"></canvas>
+  <div id="fxLayer"></div>
+</div>
+
+<script>
+  const container    = document.getElementById("container");
+  const fxLayer      = document.getElementById("fxLayer");
+  const fxMode       = document.getElementById("fxMode");
+
+  const startBtn     = document.getElementById("startBtn");
+  const stopBtn      = document.getElementById("stopBtn");
+  const resetBtn     = document.getElementById("resetBtn");
+  const timeDisplay  = document.getElementById("timeDisplay");
+  const scoreDisplay = document.getElementById("scoreDisplay");
+  const memo         = document.getElementById("memo");
+
+  const ballCanvas   = document.getElementById("ballCanvas");
+  const ballCtx      = ballCanvas.getContext("2d");
+
+  // ===== タイマー/スコア =====
+  let startTime = null;
+  let elapsedSeconds = 0;
+  let timerId = null;
+
+  let keyCount = 0;
+  const pressedKeys = new Set();
+
+  function formatTime(totalSeconds){
+    const sec = Math.max(0, Math.floor(totalSeconds));
+    const h = String(Math.floor(sec / 3600)).padStart(2, "0");
+    const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
+    const s = String(sec % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  }
+  function calcScore(totalSeconds){ return keyCount * 1.5 - totalSeconds; }
+  function getTotalSecondsNow(){
+    let total = elapsedSeconds;
+    if (startTime !== null) total = elapsedSeconds + (Date.now() - startTime) / 1000;
+    return total;
+  }
+  function updateTimeAndScore(){
+    const total = getTotalSecondsNow();
+    timeDisplay.textContent = formatTime(total);
+    scoreDisplay.textContent = calcScore(total).toFixed(1);
+  }
+
+  startBtn.addEventListener("click", () => {
+    if (startTime !== null) return;
+    startTime = Date.now();
+    if (timerId === null) timerId = setInterval(updateTimeAndScore, 100);
+    startBtn.disabled = true; stopBtn.disabled = false;
+  });
+
+  stopBtn.addEventListener("click", () => {
+    if (startTime === null) return;
+    elapsedSeconds += (Date.now() - startTime) / 1000;
+    startTime = null;
+    if (timerId !== null){ clearInterval(timerId); timerId = null; }
+    updateTimeAndScore();
+    startBtn.disabled = false; stopBtn.disabled = true;
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if (timerId !== null){ clearInterval(timerId); timerId = null; }
+    startTime = null;
+    elapsedSeconds = 0;
+    keyCount = 0;
+    pressedKeys.clear();
+    memo.value = "";
+    updateTimeAndScore();
+
+    fxLayer.innerHTML = "";
+    liveCoins = 0;
+    resetBall();
+  });
+
+  // ===== コイン演出 =====
+  const MAX_COINS = 80;
+  let liveCoins = 0;
+
+  function spawnCoinToScore(){
+    if (fxMode.value !== "coin") return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (liveCoins >= MAX_COINS) return;
+    liveCoins++;
+
+    const cRect = container.getBoundingClientRect();
+    const mRect = memo.getBoundingClientRect();
+    const sRect = scoreDisplay.getBoundingClientRect();
+    const toLocal = (x,y)=>({ x:x-cRect.left, y:y-cRect.top });
+
+    const target = toLocal(sRect.left + sRect.width/2, sRect.top + sRect.height/2);
+
+    const padding = 18;
+    const edge = Math.floor(Math.random()*4);
+    let sx, sy;
+    if (edge===0){ sx=mRect.left+Math.random()*mRect.width; sy=mRect.top-padding-Math.random()*24; }
+    else if (edge===1){ sx=mRect.right+padding+Math.random()*24; sy=mRect.top+Math.random()*mRect.height; }
+    else if (edge===2){ sx=mRect.left+Math.random()*mRect.width; sy=mRect.bottom+padding+Math.random()*24; }
+    else { sx=mRect.left-padding-Math.random()*24; sy=mRect.top+Math.random()*mRect.height; }
+    const start = toLocal(sx, sy);
+
+    const coin = document.createElement("div");
+    coin.className = "coin";
+    fxLayer.appendChild(coin);
+    coin.style.left = `${start.x}px`;
+    coin.style.top  = `${start.y}px`;
+
+    const duration = 420 + Math.random()*220;
+    const fadeTail = 120;
+
+    const anim = coin.animate([
+      { transform:"translate(-50%,-50%) scale(0.8)", opacity:0.0 },
+      { transform:"translate(-50%,-50%) scale(1.0)", opacity:1.0, offset:0.15 },
+      { transform:`translate(calc(-50% + ${target.x-start.x}px), calc(-50% + ${target.y-start.y}px)) scale(0.95)`, opacity:1.0, offset:0.85 },
+      { transform:`translate(calc(-50% + ${target.x-start.x}px), calc(-50% + ${target.y-start.y}px)) scale(0.7)`, opacity:0.0 }
+    ], { duration: duration + fadeTail, easing:"linear", fill:"forwards" });
+
+    anim.onfinish = ()=>{ coin.remove(); liveCoins = Math.max(0, liveCoins-1); };
+  }
+
+  // ===== ボール（直進寄り） =====
+  let rafId = null;
+  let lastTs = null;
+  let lastKeyTime = performance.now();
+
+  const ball = {
+    x: 100, y: 100,
+    vx: 200, vy: 140,   // px/s
+    r: 12
+  };
+
+  function resizeCanvas(){
+    const rect = container.getBoundingClientRect();
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    ballCanvas.width  = Math.floor(rect.width * dpr);
+    ballCanvas.height = Math.floor(rect.height * dpr);
+    ballCanvas.style.width = rect.width + "px";
+    ballCanvas.style.height = rect.height + "px";
+    ballCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function rand(min,max){ return min + Math.random()*(max-min); }
+
+  function resetBall(){
+    resizeCanvas();
+    const w = ballCanvas.clientWidth || container.clientWidth;
+    const h = ballCanvas.clientHeight || container.clientHeight;
+
+    ball.x = w * 0.5;
+    ball.y = h * 0.65;
+    ball.r = 12;
+
+    const sp = 220;
+    const ang = rand(0, Math.PI*2);
+    ball.vx = Math.cos(ang)*sp;
+    ball.vy = Math.sin(ang)*sp;
+
+    lastKeyTime = performance.now();
+    drawBallFrame();
+  }
+
+  function ballImpulseOnKey(){
+    // 方向を変えずに「速度だけ」増やす（直進感）
+    const mult = 1.12; // 1回で+12%
+    ball.vx *= mult;
+    ball.vy *= mult;
+
+    // 速度上限
+    const maxSpeed = 1200;
+    const sp = Math.hypot(ball.vx, ball.vy);
+    if (sp > maxSpeed){
+      const s = maxSpeed / sp;
+      ball.vx *= s; ball.vy *= s;
+    }
+    lastKeyTime = performance.now();
+  }
+
+  function applyBounceRandomOnlyInBounce(){
+    // 反射後の「反射方向の範囲」でだけ角度を少し揺らす
+    // 普段の方向は維持されるが、跳ね返り方だけランダムになる
+    const sp = Math.max(60, Math.hypot(ball.vx, ball.vy));
+    let ang = Math.atan2(ball.vy, ball.vx);
+
+    // 揺らしは小さめ：直進寄り
+    ang += rand(-0.22, 0.22); // だいたい±12.6度
+
+    ball.vx = Math.cos(ang) * sp;
+    ball.vy = Math.sin(ang) * sp;
+  }
+
+  function physicsStep(dt){
+    const w = ballCanvas.clientWidth || container.clientWidth;
+    const h = ballCanvas.clientHeight || container.clientHeight;
+
+    // 打鍵しないと減速：アイドルが長いほど摩擦が強まる
+    const now = performance.now();
+    const idle = Math.max(0, (now - lastKeyTime) / 1000);
+
+    const base = 0.994;                 // 通常時はかなり減速しにくい
+    const extra = Math.max(0, 1 - idle * 0.25);
+    const friction = Math.max(0.92, base * (0.95 + 0.05 * extra));
+    const f = Math.pow(friction, dt * 60);
+
+    ball.vx *= f; ball.vy *= f;
+
+    // 完全停止防止
+    const minSpeed = 14;
+    let sp = Math.hypot(ball.vx, ball.vy);
+    if (sp < minSpeed){
+      const ang = Math.atan2(ball.vy, ball.vx); // 今の方向のまま最低速度に
+      ball.vx = Math.cos(ang) * minSpeed;
+      ball.vy = Math.sin(ang) * minSpeed;
+    }
+
+    // 移動
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+
+    // 壁反射（跳ね返り方だけランダム）
+    let hit = false;
+
+    if (ball.x - ball.r < 0){
+      ball.x = ball.r;
+      ball.vx = Math.abs(ball.vx);
+      hit = true;
+    } else if (ball.x + ball.r > w){
+      ball.x = w - ball.r;
+      ball.vx = -Math.abs(ball.vx);
+      hit = true;
+    }
+
+    if (ball.y - ball.r < 0){
+      ball.y = ball.r;
+      ball.vy = Math.abs(ball.vy);
+      hit = true;
+    } else if (ball.y + ball.r > h){
+      ball.y = h - ball.r;
+      ball.vy = -Math.abs(ball.vy);
+      hit = true;
+    }
+
+    if (hit) applyBounceRandomOnlyInBounce();
+  }
+
+  function drawBallFrame(){
+    const w = ballCanvas.clientWidth || container.clientWidth;
+    const h = ballCanvas.clientHeight || container.clientHeight;
+    ballCtx.clearRect(0,0,w,h);
+
+    const g = ballCtx.createRadialGradient(
+      ball.x - ball.r*0.3, ball.y - ball.r*0.3, ball.r*0.2,
+      ball.x, ball.y, ball.r
+    );
+    g.addColorStop(0, "rgba(240, 253, 250, 0.95)");
+    g.addColorStop(0.5, "rgba(16, 185, 129, 0.85)");
+    g.addColorStop(1, "rgba(2, 132, 199, 0.85)");
+
+    ballCtx.beginPath();
+    ballCtx.fillStyle = g;
+    ballCtx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+    ballCtx.fill();
+
+    ballCtx.beginPath();
+    ballCtx.strokeStyle = "rgba(0,0,0,0.35)";
+    ballCtx.lineWidth = 2;
+    ballCtx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+    ballCtx.stroke();
+  }
+
+  function ballLoop(ts){
+    if (fxMode.value !== "ball"){
+      rafId = null; lastTs = null;
+      return;
+    }
+    if (lastTs == null) lastTs = ts;
+    let dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    dt = Math.min(dt, 0.033);
+
+    physicsStep(dt);
+    drawBallFrame();
+    rafId = requestAnimationFrame(ballLoop);
+  }
+
+  function ensureBallRunning(){
+    if (fxMode.value !== "ball") return;
+    resizeCanvas();
+    ballCanvas.style.display = "block";
+    if (rafId == null) rafId = requestAnimationFrame(ballLoop);
+  }
+
+  function stopBall(){
+    ballCanvas.style.display = "none";
+    if (rafId != null){ cancelAnimationFrame(rafId); rafId = null; }
+    lastTs = null;
+    ballCtx.clearRect(0,0,ballCanvas.clientWidth, ballCanvas.clientHeight);
+  }
+
+  function applyFxMode(){
+    fxLayer.innerHTML = "";
+    liveCoins = 0;
+
+    if (fxMode.value === "off"){
+      stopBall();
+    } else if (fxMode.value === "coin"){
+      stopBall();
+    } else if (fxMode.value === "ball"){
+      fxLayer.innerHTML = "";
+      resetBall();
+      ensureBallRunning();
+    }
+  }
+
+  fxMode.addEventListener("change", applyFxMode);
+  window.addEventListener("resize", () => { if (fxMode.value === "ball") resizeCanvas(); });
+
+  // ===== 打鍵（長押しリピート除外） =====
+  memo.addEventListener("keydown", (e) => {
+    if (!pressedKeys.has(e.code)){
+      pressedKeys.add(e.code);
+
+      keyCount++;
+      updateTimeAndScore();
+
+      spawnCoinToScore();
+      if (fxMode.value === "ball"){
+        ensureBallRunning();
+        ballImpulseOnKey(); // 方向いじらず加速
+      }
+    }
+  });
+
+  memo.addEventListener("keyup", (e) => pressedKeys.delete(e.code));
+  memo.addEventListener("blur", () => pressedKeys.clear());
+  memo.addEventListener("input", () => updateTimeAndScore());
+
+  // 初期
+  updateTimeAndScore();
+  applyFxMode();
+</script>
+</body>
+</html>
