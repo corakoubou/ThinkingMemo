@@ -20,7 +20,7 @@
       background:#111827;
       border-radius:16px;
       padding:20px;
-      max-width:800px;
+      max-width:1040px;
       width:100%;
       box-shadow:0 15px 35px rgba(0,0,0,0.5);
       position:relative;
@@ -93,7 +93,7 @@
 
     #memo{
       width:100%;
-      height:280px;
+      height:364px;
       background:#020617;
       color:#f9fafb;
       border-radius:12px;
@@ -109,6 +109,31 @@
       outline:none;
       border-color:#10b981;
       box-shadow:0 0 0 1px rgba(16,185,129,.6);
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      margin:12px 0 8px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+    .tab-btn{
+      border:1px solid #374151;
+      background:#0b1220;
+      color:#e5e7eb;
+      padding:8px 14px;
+      border-radius:10px;
+      font-weight:700;
+      cursor:pointer;
+      transition:background .15s ease, color .15s ease, transform .1s ease;
+    }
+    .tab-btn:hover{ transform:translateY(-1px); }
+    .tab-btn.active{
+      background:#10b981;
+      color:#022c22;
+      border-color:#10b981;
+      box-shadow:0 4px 10px rgba(16,185,129,0.35);
     }
 
     .note{
@@ -165,7 +190,7 @@
         padding:8px 8px;
       }
       #memo{
-        height:45vh;
+        height:58vh;
         resize:none;
       }
       .note{ text-align:left; }
@@ -207,6 +232,8 @@
     </div>
   </div>
 
+  <div class="tabs" id="tabs"></div>
+
   <textarea id="memo" placeholder="ここに思考内容やメモを書いてくださいっす、ご主人。&#10;・打鍵1回ごとに +1.5点（長押しリピート除外）っす&#10;・0.1秒ごとに -0.1点（＝1秒で -1点）っす&#10;・リロードしても内容は保存されるっす"></textarea>
 
   <div class="note">
@@ -221,6 +248,7 @@
   const container    = document.getElementById("container");
   const fxLayer      = document.getElementById("fxLayer");
   const fxMode       = document.getElementById("fxMode");
+  const tabs         = document.getElementById("tabs");
 
   const startBtn     = document.getElementById("startBtn");
   const stopBtn      = document.getElementById("stopBtn");
@@ -229,15 +257,43 @@
   const scoreDisplay = document.getElementById("scoreDisplay");
   const memo         = document.getElementById("memo");
 
+  const TAB_COUNT = 5;
+  let activeTab = 1;
+  let tabMemos = Array.from({ length: TAB_COUNT }, () => "");
+
   const ballCanvas   = document.getElementById("ballCanvas");
   const ballCtx      = ballCanvas.getContext("2d");
 
   // ===== 永続化（localStorage）=====
   const STORAGE_KEY = "thinking_memo_state_v2";
 
+  function renderTabs(){
+    tabs.innerHTML = "";
+    for (let i=1; i<=TAB_COUNT; i++){
+      const btn = document.createElement("button");
+      btn.className = "tab-btn" + (i === activeTab ? " active" : "");
+      btn.textContent = `タブ${i}`;
+      btn.addEventListener("click", () => switchTab(i));
+      tabs.appendChild(btn);
+    }
+  }
+
+  function switchTab(nextIndex){
+    if (nextIndex === activeTab) return;
+    tabMemos[activeTab - 1] = memo.value;
+    activeTab = nextIndex;
+    memo.value = tabMemos[activeTab - 1] ?? "";
+    renderTabs();
+    updateTimeAndScore();
+    saveState();
+    memo.focus();
+  }
+
   function saveState(){
+    tabMemos[activeTab - 1] = memo.value;
     const state = {
-      memo: memo.value,
+      tabs: tabMemos,
+      activeTab,
       elapsedSeconds: getTotalSecondsNow(), // 実行中でも現在値を保存
       keyCount,
       fxMode: fxMode.value
@@ -254,7 +310,12 @@
     if (!raw) return;
     try{
       const state = JSON.parse(raw);
-      memo.value = state.memo ?? "";
+      if (Array.isArray(state.tabs)){
+        tabMemos = Array.from({ length: TAB_COUNT }, (_, i) => state.tabs[i] ?? "");
+      } else {
+        tabMemos[0] = state.memo ?? ""; // 後方互換
+      }
+      activeTab = Math.min(TAB_COUNT, Math.max(1, Number(state.activeTab ?? 1)));
       elapsedSeconds = Number(state.elapsedSeconds ?? 0) || 0;
       keyCount = Number(state.keyCount ?? 0) || 0;
       if (state.fxMode) fxMode.value = state.fxMode;
@@ -340,7 +401,11 @@
     keyCount = 0;
     pressedKeys.clear();
 
+    tabMemos = Array.from({ length: TAB_COUNT }, () => "");
+    activeTab = 1;
+
     memo.value = "";
+    renderTabs();
     updateTimeAndScore();
 
     // 演出リセット
@@ -631,6 +696,9 @@
 
   // ===== 初期化 =====
   loadState();
+
+  renderTabs();
+  memo.value = tabMemos[activeTab - 1] ?? "";
 
   // リロード後は「停止状態」で復元（startTimeはnullのまま）
   startBtn.disabled = false;
