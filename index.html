@@ -2,101 +2,175 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>思考メモ帳（コイン/ボール演出・直進寄り）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>思考メモ帳（保存＋スマホ最適化＋コイン/ボール演出）</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0; padding: 0;
+
+    body{
+      margin:0; padding:0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #1f2933; color: #f9fafb;
-      display: flex; justify-content: center; align-items: flex-start;
-      min-height: 100vh;
+      background:#1f2933; color:#f9fafb;
+      display:flex; justify-content:center; align-items:flex-start;
+      min-height:100vh;
     }
-    .container {
-      margin: 40px 16px;
-      background: #111827;
-      border-radius: 16px;
-      padding: 20px;
-      max-width: 800px;
-      width: 100%;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-      position: relative;
-      overflow: visible;
+
+    .container{
+      margin:40px 16px;
+      background:#111827;
+      border-radius:16px;
+      padding:20px;
+      max-width:800px;
+      width:100%;
+      box-shadow:0 15px 35px rgba(0,0,0,0.5);
+      position:relative;
+      overflow:visible;
     }
-    h1 { margin: 0 0 16px; font-size: 1.6rem; text-align: center; }
+
+    h1{ margin:0 0 16px; font-size:1.6rem; text-align:center; }
 
     .controls{
-      display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;
-      justify-content:center; align-items:center;
+      display:flex; gap:8px; margin-bottom:12px;
+      flex-wrap:wrap; justify-content:center; align-items:center;
     }
+
     button{
-      border:none; border-radius:999px; padding:8px 18px;
-      font-size:0.95rem; cursor:pointer; font-weight:600;
-      transition: transform .1s ease, box-shadow .1s ease, opacity .2s ease;
+      border:none; border-radius:999px;
+      padding:8px 18px;
+      font-size:0.95rem;
+      cursor:pointer;
+      font-weight:600;
+      transition:transform .1s ease, box-shadow .1s ease, opacity .2s ease;
+      touch-action: manipulation;
     }
     button:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; transform:none; }
     #startBtn{ background:#10b981; color:#022c22; }
     #stopBtn{ background:#f97316; color:#7c2d12; }
     #resetBtn{ background:#6b7280; color:#e5e7eb; }
-    button:not(:disabled):hover{ transform: translateY(-1px); box-shadow:0 4px 10px rgba(0,0,0,.35); }
+    button:not(:disabled):hover{
+      transform:translateY(-1px);
+      box-shadow:0 4px 10px rgba(0,0,0,.35);
+    }
 
     .select-pill{
       display:inline-flex; align-items:center; gap:8px;
-      padding:6px 10px; border:1px solid #374151;
-      border-radius:999px; background:#0b1220; user-select:none;
-      font-size:.9rem; color:#e5e7eb;
+      padding:6px 10px;
+      border:1px solid #374151;
+      border-radius:999px;
+      background:#0b1220;
+      user-select:none;
+      font-size:.9rem;
+      color:#e5e7eb;
     }
     .select-pill select{
-      background:transparent; border:none; outline:none;
-      color:#e5e7eb; font-size:.9rem; cursor:pointer;
+      background:transparent;
+      border:none;
+      outline:none;
+      color:#e5e7eb;
+      font-size:.9rem;
+      cursor:pointer;
     }
     .select-pill option{ color:#111827; }
 
     .info{
-      display:flex; flex-wrap:wrap; gap:16px; margin-bottom:12px;
-      justify-content:center; font-size:.95rem;
+      display:flex; flex-wrap:wrap; gap:16px;
+      margin-bottom:12px;
+      justify-content:center;
+      font-size:.95rem;
     }
     .info-item{
-      background:#111827; border-radius:10px; padding:6px 10px;
-      border:1px solid #374151; min-width:160px; text-align:center;
-      position:relative; z-index:2;
+      background:#111827;
+      border-radius:10px;
+      padding:6px 10px;
+      border:1px solid #374151;
+      min-width:160px;
+      text-align:center;
+      position:relative;
+      z-index:2;
     }
     .label{ font-size:.8rem; color:#9ca3af; margin-bottom:2px; }
     .value{ font-size:1.1rem; font-variant-numeric: tabular-nums; }
 
     #memo{
-      width:100%; height:280px; background:#020617; color:#f9fafb;
-      border-radius:12px; border:1px solid #374151;
-      padding:10px 12px; resize:vertical;
-      font-size:.95rem; line-height:1.4;
-      position:relative; z-index:1;
+      width:100%;
+      height:280px;
+      background:#020617;
+      color:#f9fafb;
+      border-radius:12px;
+      border:1px solid #374151;
+      padding:10px 12px;
+      resize:vertical;
+      font-size:1rem;
+      line-height:1.45;
+      position:relative;
+      z-index:1;
     }
     #memo:focus{
-      outline:none; border-color:#10b981;
+      outline:none;
+      border-color:#10b981;
       box-shadow:0 0 0 1px rgba(16,185,129,.6);
     }
-    .note{ margin-top:6px; font-size:.8rem; color:#9ca3af; text-align:right; }
 
+    .note{
+      margin-top:6px;
+      font-size:.8rem;
+      color:#9ca3af;
+      text-align:right;
+    }
+
+    /* コイン演出レイヤー（DOM） */
     #fxLayer{
-      position:absolute; inset:0; pointer-events:none; overflow:visible; z-index:3;
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      overflow:visible;
+      z-index:3;
     }
     .coin{
-      position:absolute; width:16px; height:16px; border-radius:50%;
+      position:absolute;
+      width:16px; height:16px;
+      border-radius:50%;
       background: radial-gradient(circle at 35% 35%, #fff7cc 0%, #fbbf24 35%, #b45309 100%);
       box-shadow: 0 6px 14px rgba(0,0,0,0.35);
       transform: translate(-50%, -50%);
-      opacity:0; will-change: transform, opacity;
+      opacity:0;
+      will-change: transform, opacity;
     }
 
+    /* ボール演出はCanvas */
     #ballCanvas{
-      position:absolute; inset:0; pointer-events:none;
-      z-index:2; display:none;
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:2;
+      display:none;
     }
 
+    /* ===== スマホ最適化 ===== */
     @media (max-width: 600px){
-      .container{ margin:16px; padding:16px; }
-      #memo{ height:220px; }
+      .container{
+        margin:8px;
+        padding:12px;
+        border-radius:12px;
+      }
+      h1{ font-size:1.25rem; margin-bottom:12px; }
+      .controls{ gap:6px; }
+      button{
+        padding:10px 14px;
+        font-size:0.92rem;
+      }
+      .info{ gap:8px; }
+      .info-item{
+        min-width:140px;
+        padding:8px 8px;
+      }
+      #memo{
+        height:45vh;
+        resize:none;
+      }
+      .note{ text-align:left; }
     }
+
     @media (prefers-reduced-motion: reduce){
       .coin{ display:none; }
       #ballCanvas{ display:none !important; }
@@ -105,7 +179,7 @@
 </head>
 <body>
 <div class="container" id="container">
-  <h1>思考メモ帳（直進寄りボール）</h1>
+  <h1>思考メモ帳（保存＋演出）</h1>
 
   <div class="controls">
     <button id="startBtn">思考開始</button>
@@ -133,7 +207,7 @@
     </div>
   </div>
 
-  <textarea id="memo" placeholder="ここに思考内容やメモを書いてくださいっす、ご主人。&#10;・打鍵1回ごとに +1.5点（長押しリピート除外）っす&#10;・ボールは直進寄り、ランダムは跳ね返りだけっす"></textarea>
+  <textarea id="memo" placeholder="ここに思考内容やメモを書いてくださいっす、ご主人。&#10;・打鍵1回ごとに +1.5点（長押しリピート除外）っす&#10;・0.1秒ごとに -0.1点（＝1秒で -1点）っす&#10;・リロードしても内容は保存されるっす"></textarea>
 
   <div class="note">
     ルール：0.1秒ごとに -0.1点（＝1秒で -1点） / 打鍵1回ごとに +1.5点（長押しリピート除外）っす
@@ -158,12 +232,45 @@
   const ballCanvas   = document.getElementById("ballCanvas");
   const ballCtx      = ballCanvas.getContext("2d");
 
+  // ===== 永続化（localStorage）=====
+  const STORAGE_KEY = "thinking_memo_state_v2";
+
+  function saveState(){
+    const state = {
+      memo: memo.value,
+      elapsedSeconds: getTotalSecondsNow(), // 実行中でも現在値を保存
+      keyCount,
+      fxMode: fxMode.value
+    };
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){
+      console.warn("保存に失敗したっす（容量オーバー等）", e);
+    }
+  }
+
+  function loadState(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    try{
+      const state = JSON.parse(raw);
+      memo.value = state.memo ?? "";
+      elapsedSeconds = Number(state.elapsedSeconds ?? 0) || 0;
+      keyCount = Number(state.keyCount ?? 0) || 0;
+      if (state.fxMode) fxMode.value = state.fxMode;
+    }catch(e){
+      console.warn("保存データの読み込みに失敗したっす", e);
+    }
+  }
+
   // ===== タイマー/スコア =====
   let startTime = null;
   let elapsedSeconds = 0;
   let timerId = null;
 
   let keyCount = 0;
+
+  // 長押し除外
   const pressedKeys = new Set();
 
   function formatTime(totalSeconds){
@@ -173,46 +280,79 @@
     const s = String(sec % 60).padStart(2, "0");
     return `${h}:${m}:${s}`;
   }
-  function calcScore(totalSeconds){ return keyCount * 1.5 - totalSeconds; }
+
+  function calcScore(totalSeconds){
+    return keyCount * 1.5 - totalSeconds;
+  }
+
   function getTotalSecondsNow(){
     let total = elapsedSeconds;
-    if (startTime !== null) total = elapsedSeconds + (Date.now() - startTime) / 1000;
+    if (startTime !== null){
+      total = elapsedSeconds + (Date.now() - startTime) / 1000;
+    }
     return total;
   }
+
   function updateTimeAndScore(){
     const total = getTotalSecondsNow();
     timeDisplay.textContent = formatTime(total);
     scoreDisplay.textContent = calcScore(total).toFixed(1);
   }
 
+  // ===== ボタン =====
   startBtn.addEventListener("click", () => {
     if (startTime !== null) return;
     startTime = Date.now();
-    if (timerId === null) timerId = setInterval(updateTimeAndScore, 100);
-    startBtn.disabled = true; stopBtn.disabled = false;
+
+    if (timerId === null){
+      timerId = setInterval(updateTimeAndScore, 100);
+    }
+
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
   });
 
   stopBtn.addEventListener("click", () => {
     if (startTime === null) return;
+
     elapsedSeconds += (Date.now() - startTime) / 1000;
     startTime = null;
-    if (timerId !== null){ clearInterval(timerId); timerId = null; }
+
+    if (timerId !== null){
+      clearInterval(timerId);
+      timerId = null;
+    }
+
     updateTimeAndScore();
-    startBtn.disabled = false; stopBtn.disabled = true;
+    saveState();
+
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
   });
 
   resetBtn.addEventListener("click", () => {
-    if (timerId !== null){ clearInterval(timerId); timerId = null; }
+    if (timerId !== null){
+      clearInterval(timerId);
+      timerId = null;
+    }
     startTime = null;
     elapsedSeconds = 0;
     keyCount = 0;
     pressedKeys.clear();
+
     memo.value = "";
     updateTimeAndScore();
 
+    // 演出リセット
     fxLayer.innerHTML = "";
     liveCoins = 0;
     resetBall();
+
+    // 保存データも消す
+    localStorage.removeItem(STORAGE_KEY);
+
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
   });
 
   // ===== コイン演出 =====
@@ -235,10 +375,12 @@
     const padding = 18;
     const edge = Math.floor(Math.random()*4);
     let sx, sy;
+
     if (edge===0){ sx=mRect.left+Math.random()*mRect.width; sy=mRect.top-padding-Math.random()*24; }
     else if (edge===1){ sx=mRect.right+padding+Math.random()*24; sy=mRect.top+Math.random()*mRect.height; }
     else if (edge===2){ sx=mRect.left+Math.random()*mRect.width; sy=mRect.bottom+padding+Math.random()*24; }
     else { sx=mRect.left-padding-Math.random()*24; sy=mRect.top+Math.random()*mRect.height; }
+
     const start = toLocal(sx, sy);
 
     const coin = document.createElement("div");
@@ -260,16 +402,12 @@
     anim.onfinish = ()=>{ coin.remove(); liveCoins = Math.max(0, liveCoins-1); };
   }
 
-  // ===== ボール（直進寄り） =====
+  // ===== ボール（直進寄り：ランダムは跳ね返りだけ）=====
   let rafId = null;
   let lastTs = null;
   let lastKeyTime = performance.now();
 
-  const ball = {
-    x: 100, y: 100,
-    vx: 200, vy: 140,   // px/s
-    r: 12
-  };
+  const ball = { x:100, y:100, vx:200, vy:140, r:12 };
 
   function resizeCanvas(){
     const rect = container.getBoundingClientRect();
@@ -302,12 +440,10 @@
   }
 
   function ballImpulseOnKey(){
-    // 方向を変えずに「速度だけ」増やす（直進感）
-    const mult = 1.12; // 1回で+12%
+    const mult = 1.12; // 方向は変えずに速度だけUP
     ball.vx *= mult;
     ball.vy *= mult;
 
-    // 速度上限
     const maxSpeed = 1200;
     const sp = Math.hypot(ball.vx, ball.vy);
     if (sp > maxSpeed){
@@ -318,14 +454,9 @@
   }
 
   function applyBounceRandomOnlyInBounce(){
-    // 反射後の「反射方向の範囲」でだけ角度を少し揺らす
-    // 普段の方向は維持されるが、跳ね返り方だけランダムになる
     const sp = Math.max(60, Math.hypot(ball.vx, ball.vy));
     let ang = Math.atan2(ball.vy, ball.vx);
-
-    // 揺らしは小さめ：直進寄り
-    ang += rand(-0.22, 0.22); // だいたい±12.6度
-
+    ang += rand(-0.22, 0.22); // 跳ね返りの揺らしだけ
     ball.vx = Math.cos(ang) * sp;
     ball.vy = Math.sin(ang) * sp;
   }
@@ -334,31 +465,29 @@
     const w = ballCanvas.clientWidth || container.clientWidth;
     const h = ballCanvas.clientHeight || container.clientHeight;
 
-    // 打鍵しないと減速：アイドルが長いほど摩擦が強まる
+    // 打鍵しないと減速（アイドルが長いほど強め）
     const now = performance.now();
     const idle = Math.max(0, (now - lastKeyTime) / 1000);
 
-    const base = 0.994;                 // 通常時はかなり減速しにくい
+    const base = 0.994;
     const extra = Math.max(0, 1 - idle * 0.25);
     const friction = Math.max(0.92, base * (0.95 + 0.05 * extra));
     const f = Math.pow(friction, dt * 60);
 
     ball.vx *= f; ball.vy *= f;
 
-    // 完全停止防止
+    // 完全停止防止（方向維持）
     const minSpeed = 14;
     let sp = Math.hypot(ball.vx, ball.vy);
     if (sp < minSpeed){
-      const ang = Math.atan2(ball.vy, ball.vx); // 今の方向のまま最低速度に
+      const ang = Math.atan2(ball.vy, ball.vx);
       ball.vx = Math.cos(ang) * minSpeed;
       ball.vy = Math.sin(ang) * minSpeed;
     }
 
-    // 移動
     ball.x += ball.vx * dt;
     ball.y += ball.vy * dt;
 
-    // 壁反射（跳ね返り方だけランダム）
     let hit = false;
 
     if (ball.x - ball.r < 0){
@@ -417,6 +546,7 @@
     if (lastTs == null) lastTs = ts;
     let dt = (ts - lastTs) / 1000;
     lastTs = ts;
+
     dt = Math.min(dt, 0.033);
 
     physicsStep(dt);
@@ -451,12 +581,15 @@
       resetBall();
       ensureBallRunning();
     }
+    saveState();
   }
 
   fxMode.addEventListener("change", applyFxMode);
-  window.addEventListener("resize", () => { if (fxMode.value === "ball") resizeCanvas(); });
+  window.addEventListener("resize", () => {
+    if (fxMode.value === "ball") resizeCanvas();
+  });
 
-  // ===== 打鍵（長押しリピート除外） =====
+  // ===== 入力（長押しリピート除外）=====
   memo.addEventListener("keydown", (e) => {
     if (!pressedKeys.has(e.code)){
       pressedKeys.add(e.code);
@@ -464,19 +597,45 @@
       keyCount++;
       updateTimeAndScore();
 
-      spawnCoinToScore();
+      if (fxMode.value === "coin") spawnCoinToScore();
       if (fxMode.value === "ball"){
         ensureBallRunning();
-        ballImpulseOnKey(); // 方向いじらず加速
+        ballImpulseOnKey();
       }
+
+      saveState();
     }
   });
 
   memo.addEventListener("keyup", (e) => pressedKeys.delete(e.code));
   memo.addEventListener("blur", () => pressedKeys.clear());
-  memo.addEventListener("input", () => updateTimeAndScore());
 
-  // 初期
+  memo.addEventListener("input", () => {
+    updateTimeAndScore();
+    saveState();
+  });
+
+  // タイマー中も定期保存（500ms）
+  let lastAutoSave = performance.now();
+  function autoSaveTick(){
+    if (startTime !== null){
+      const now = performance.now();
+      if (now - lastAutoSave >= 500){
+        lastAutoSave = now;
+        saveState();
+      }
+    }
+    requestAnimationFrame(autoSaveTick);
+  }
+  requestAnimationFrame(autoSaveTick);
+
+  // ===== 初期化 =====
+  loadState();
+
+  // リロード後は「停止状態」で復元（startTimeはnullのまま）
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+
   updateTimeAndScore();
   applyFxMode();
 </script>
